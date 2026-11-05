@@ -1,0 +1,13 @@
+services:
+  ros-dev:
+    image: ${ROBOT_IMAGE:-robot-dev:local}
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+      args:
+        ROS_RENDERING_IMAGE: ${ROS_RENDERING_IMAGE:-multiros:jazzy-rendering}
+    init: true
+    command: ["sleep", "infinity"]
+    volumes:
+      - .:/workspace/robot
+    working_dir: /workspace/robot

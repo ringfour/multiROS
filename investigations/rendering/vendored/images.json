@@ -1,0 +1,12 @@
+{
+  "multiros:jazzy-lighter": {
+    "id": "sha256:e241dcf687792148e1b22398224f8666fc0936c86994345fae4f66a7660bb757",
+    "shader_io": "screen-scoped-v1",
+    "resource_names": "v1"
+  },
+  "xlerobot:jazzy-lighter": {
+    "id": "sha256:d0123d15dd968974c5485b7155c359731940072a030e3e43037b5e592629ccf7",
+    "shader_io": "screen-scoped-v1",
+    "resource_names": "v1"
+  }
+}

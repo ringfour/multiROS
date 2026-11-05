@@ -1,0 +1,29 @@
+--- a/src/gallium/drivers/zink/zink_compiler.c
++++ b/src/gallium/drivers/zink/zink_compiler.c
+@@ -3898,6 +3898,26 @@
+    }
+ 
+    struct zink_shader_object obj = {0};
++   /* Preserve diagnostic names without shadowing Metal keywords after
++    * SPIRV-Cross translation (for example, a texture named "sampler").
++    */
++   if (zink_driverid(screen) == VK_DRIVER_ID_MOLTENVK) {
++      static const char *const reserved[] = {
++         "sampler", "texture", "device", "constant", "thread", "threadgroup",
++         "vertex", "fragment", "kernel", "access", "half", "ushort", "uchar",
++      };
++      nir_foreach_variable_in_shader(var, nir) {
++         if (!var->name)
++            continue;
++         for (unsigned i = 0; i < ARRAY_SIZE(reserved); i++) {
++            if (!strcmp(var->name, reserved[i])) {
++               var->name = ralloc_asprintf(var, "multiros_%s", var->name);
++               break;
++            }
++         }
++      }
++   }
++
+    struct spirv_shader *spirv = nir_to_spirv(nir, sinfo, screen);
+    if (spirv)
+       obj = zink_shader_spirv_compile(screen, zs, spirv, can_shobj, pg);

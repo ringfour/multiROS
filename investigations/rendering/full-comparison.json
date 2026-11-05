@@ -1,0 +1,7 @@
+{
+  "rgb_mean_absolute_error_0_255": 0.022748480902777778,
+  "rgb_p99_absolute_error": 1.0,
+  "depth_median_absolute_error_m": 0.0008993148803710938,
+  "depth_p99_absolute_error_m": 0.017171859741210938,
+  "segmentation_pixel_agreement": 0.99482421875
+}

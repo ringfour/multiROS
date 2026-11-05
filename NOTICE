@@ -1,0 +1,8 @@
+multiROS
+
+The passive MuJoCo viewer was extracted from XLeRobotROS (Apache-2.0).
+Robot assets and control packages remain in their original repositories.
+
+Mesa compatibility patches adapted from GPUAccelerationTest and
+BAR-on-Apple-Silicon retain the license and attribution supplied in
+ docker/patches/mesa-25.1.9/ and investigations/rendering/patches/.

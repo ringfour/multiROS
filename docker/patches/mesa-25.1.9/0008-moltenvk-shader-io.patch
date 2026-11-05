@@ -1,0 +1,163 @@
+--- a/src/gallium/drivers/zink/zink_compiler.c
++++ b/src/gallium/drivers/zink/zink_compiler.c
+@@ -5157,6 +5157,7 @@
+ struct rework_io_state {
+    /* these are search criteria */
+    bool indirect_only;
++   bool moltenvk;
+    unsigned location;
+    nir_variable_mode mode;
+    gl_shader_stage stage;
+@@ -5254,7 +5255,16 @@
+     * - ignore no-overlapping-components case
+     * - always match fbfetch and dual src blend
+     */
+-   if (ris->component_mask &&
++   /* MoltenVK: Metal links varyings by location+component; merge disjoint
++    * component groups of FS inputs into one variable so producer/consumer
++    * structs match after MSL conversion.
++    */
++   bool merge_disjoint = ris->moltenvk &&
++                         ris->stage == MESA_SHADER_FRAGMENT &&
++                         ris->mode == nir_var_shader_in &&
++                         ris->fb_fetch_output == sem.fb_fetch_output &&
++                         ris->dual_source_blend_index == sem.dual_source_blend_index;
++   if (ris->component_mask && !merge_disjoint &&
+        (!(ris->component_mask & cmask) || ris->fb_fetch_output != sem.fb_fetch_output || ris->dual_source_blend_index != sem.dual_source_blend_index)) {
+       ris->ignored_component_mask |= cmask;
+       return;
+@@ -5341,13 +5351,14 @@
+ 
+ /* scan a given i/o slot for state info */
+ static struct rework_io_state
+-scan_io_var_slot(nir_shader *nir, nir_variable_mode mode, unsigned location, bool scan_indirects)
++scan_io_var_slot(nir_shader *nir, nir_variable_mode mode, unsigned location, bool scan_indirects, bool moltenvk)
+ {
+    struct rework_io_state ris = {
+       .location = location,
+       .mode = mode,
+       .stage = nir->info.stage,
+       .nir = nir,
++      .moltenvk = moltenvk,
+    };
+ 
+    struct rework_io_state test;
+@@ -5390,6 +5401,17 @@
+    }
+    /* calculate vec/array type */
+    int frac = ffs(ris->component_mask) - 1;
++   /* MoltenVK: expand user varyings to vec4 at component 0 on both sides
++    * so MSL in/out structs always match (Metal links by location+component).
++    */
++   if (ris->moltenvk && ris->bit_size == 32 && !ris->arrayed_io &&
++       !ris->fb_fetch_output && !ris->array_size &&
++       ((ris->mode == nir_var_shader_in && ris->stage == MESA_SHADER_FRAGMENT) ||
++        (ris->mode == nir_var_shader_out && ris->stage == MESA_SHADER_VERTEX &&
++         !nir_slot_is_sysval_output(ris->location, MESA_SHADER_FRAGMENT)))) {
++      ris->component_mask = BITFIELD_MASK(4);
++      frac = 0;
++   }
+    int num_components = util_last_bit(ris->component_mask) - frac;
+    assert(ris->component_mask == BITFIELD_RANGE(frac, num_components));
+    const struct glsl_type *vec_type = glsl_vector_type(nir_get_glsl_base_type_for_nir_type(ris->type), num_components);
+@@ -5423,7 +5445,7 @@
+ 
+ /* loop the i/o mask and generate variables for specified locations */
+ static void
+-loop_io_var_mask(nir_shader *nir, nir_variable_mode mode, bool indirect, bool patch, uint64_t mask)
++loop_io_var_mask(nir_shader *nir, nir_variable_mode mode, bool indirect, bool patch, uint64_t mask, bool moltenvk)
+ {
+    ASSERTED bool is_vertex_input = nir->info.stage == MESA_SHADER_VERTEX && mode == nir_var_shader_in;
+    u_foreach_bit64(slot, mask) {
+@@ -5437,7 +5459,7 @@
+       unsigned remaining = 0;
+       do {
+          /* scan the slot for usage */
+-         struct rework_io_state ris = scan_io_var_slot(nir, mode, location, indirect);
++         struct rework_io_state ris = scan_io_var_slot(nir, mode, location, indirect, moltenvk);
+          /* one of these must be true or things have gone very wrong */
+          assert(indirect || ris.component_mask || find_rework_var(nir, &ris) || remaining);
+          /* release builds only */
+@@ -5455,7 +5477,7 @@
+ 
+ /* for a given mode, generate variables */
+ static void
+-rework_io_vars(nir_shader *nir, nir_variable_mode mode, struct zink_shader *zs)
++rework_io_vars(nir_shader *nir, nir_variable_mode mode, struct zink_shader *zs, bool moltenvk)
+ {
+    assert(mode == nir_var_shader_out || mode == nir_var_shader_in);
+    assert(util_bitcount(mode) == 1);
+@@ -5482,6 +5504,7 @@
+             .location = slot,
+             .mode = mode,
+             .stage = nir->info.stage,
++            .moltenvk = moltenvk,
+          };
+          /* explicitly handle builtins */
+          switch (slot) {
+@@ -5499,7 +5522,7 @@
+          }
+       }
+       /* the rest of the outputs can be generated normally */
+-      loop_io_var_mask(nir, mode, false, false, outputs_accessed);
++      loop_io_var_mask(nir, mode, false, false, outputs_accessed, moltenvk);
+       return;
+    }
+ 
+@@ -5516,16 +5539,17 @@
+             .location = slot,
+             .mode = mode,
+             .stage = nir->info.stage,
++            .moltenvk = moltenvk,
+             .bit_size = 32,
+             .component_mask = component_mask,
+             .type = nir_type_float32,
+-            .newname = scan_io_var_slot(nir, nir_var_shader_in, slot, false).newname,
++            .newname = scan_io_var_slot(nir, nir_var_shader_in, slot, false, moltenvk).newname,
+          };
+          create_io_var(nir, &ris);
+          inputs_read &= ~BITFIELD64_BIT(slot);
+       }
+       /* the rest of the inputs can be generated normally */
+-      loop_io_var_mask(nir, mode, false, false, inputs_read);
++      loop_io_var_mask(nir, mode, false, false, inputs_read, moltenvk);
+       return;
+    }
+ 
+@@ -5537,6 +5561,7 @@
+          .location = slot,
+          .mode = mode,
+          .stage = nir->info.stage,
++         .moltenvk = moltenvk,
+          .arrayed_io = (mode == nir_var_shader_in ? zs->arrayed_inputs : zs->arrayed_outputs) & BITFIELD64_BIT(slot),
+       };
+       /* explicitly handle builtins */
+@@ -5623,13 +5648,13 @@
+       uint64_t indirect_patch_mask = mode == nir_var_shader_in ? nir->info.patch_inputs_read_indirectly : nir->info.patch_outputs_accessed_indirectly;
+       uint64_t patch_mask = mode == nir_var_shader_in ? nir->info.patch_inputs_read : patch_outputs_accessed;
+ 
+-      loop_io_var_mask(nir, mode, true, true, indirect_patch_mask);
+-      loop_io_var_mask(nir, mode, false, true, patch_mask);
++      loop_io_var_mask(nir, mode, true, true, indirect_patch_mask, moltenvk);
++      loop_io_var_mask(nir, mode, false, true, patch_mask, moltenvk);
+    }
+ 
+    /* regular i/o */
+-   loop_io_var_mask(nir, mode, true, false, indirect_mask);
+-   loop_io_var_mask(nir, mode, false, false, mask);
++   loop_io_var_mask(nir, mode, true, false, indirect_mask, moltenvk);
++   loop_io_var_mask(nir, mode, false, false, mask, moltenvk);
+ }
+ 
+ static int
+@@ -6209,8 +6234,8 @@
+    NIR_PASS_V(nir, nir_opt_vectorize, NULL, NULL);
+    NIR_PASS_V(nir, trivial_revectorize);
+    if (nir->info.io_lowered) {
+-      rework_io_vars(nir, nir_var_shader_in, zs);
+-      rework_io_vars(nir, nir_var_shader_out, zs);
++      rework_io_vars(nir, nir_var_shader_in, zs, zink_driverid(screen) == VK_DRIVER_ID_MOLTENVK);
++      rework_io_vars(nir, nir_var_shader_out, zs, zink_driverid(screen) == VK_DRIVER_ID_MOLTENVK);
+       nir_sort_variables_by_location(nir, nir_var_shader_in);
+       nir_sort_variables_by_location(nir, nir_var_shader_out);
+    }

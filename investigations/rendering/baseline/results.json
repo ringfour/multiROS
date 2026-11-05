@@ -1,0 +1,34 @@
+[
+  {
+    "case": "plain",
+    "returncode": 0
+  },
+  {
+    "case": "texture",
+    "returncode": 133
+  },
+  {
+    "case": "skybox",
+    "returncode": 0
+  },
+  {
+    "case": "reflection",
+    "returncode": 133
+  },
+  {
+    "case": "lights",
+    "returncode": 0
+  },
+  {
+    "case": "fog",
+    "returncode": 0
+  },
+  {
+    "case": "transparency",
+    "returncode": 0
+  },
+  {
+    "case": "combined",
+    "returncode": 133
+  }
+]

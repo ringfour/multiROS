@@ -1,0 +1,9 @@
+.git
+.pixi
+**/__pycache__
+**/*.pyc
+investigations
+docs
+tests
+templates
+examples

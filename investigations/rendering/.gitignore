@@ -1,0 +1,9 @@
+# Local evidence; retain the scripts, patch, result summaries and report.
+/baseline/*.log
+/patched/*.log
+/vendored/*.log
+/full-gpu/
+/full-gpu-fast/
+/full-cpu/
+/full-cpu-fast/
+__pycache__/

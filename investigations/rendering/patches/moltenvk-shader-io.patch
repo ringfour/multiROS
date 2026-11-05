@@ -1,0 +1,59 @@
+diff --git a/src/gallium/drivers/zink/zink_compiler.c b/src/gallium/drivers/zink/zink_compiler.c
+index 1d751d51..49b6d7fd 100644
+--- a/src/gallium/drivers/zink/zink_compiler.c
++++ b/src/gallium/drivers/zink/zink_compiler.c
+@@ -1265,6 +1265,8 @@ amd_varying_expression_max_cost(nir_shader *producer, nir_shader *consumer)
+    }
+ }
+ 
++static bool zink_io_quirk_moltenvk = false;
++
+ void
+ zink_screen_init_compiler(struct zink_screen *screen)
+ {
+@@ -1365,6 +1367,9 @@ zink_screen_init_compiler(struct zink_screen *screen)
+    if (screen->info.have_EXT_shader_demote_to_helper_invocation)
+       screen->nir_options.discard_is_demote = true;
+ 
++   /* BAR-on-mac: see create_io_var / update_io_var_state */
++   zink_io_quirk_moltenvk = zink_driverid(screen) == VK_DRIVER_ID_MOLTENVK;
++
+    screen->nir_options.support_indirect_inputs = (uint8_t)BITFIELD_MASK(PIPE_SHADER_TYPES);
+    screen->nir_options.support_indirect_outputs = (uint8_t)BITFIELD_MASK(PIPE_SHADER_TYPES);
+ }
+@@ -5254,7 +5259,16 @@ update_io_var_state(nir_intrinsic_instr *intr, struct rework_io_state *ris)
+     * - ignore no-overlapping-components case
+     * - always match fbfetch and dual src blend
+     */
+-   if (ris->component_mask &&
++   /* BAR-on-mac: Metal links varyings by location+component; merge disjoint
++    * component groups of FS inputs into one variable so producer/consumer
++    * structs match after MSL conversion.
++    */
++   bool merge_disjoint = zink_io_quirk_moltenvk &&
++                         ris->stage == MESA_SHADER_FRAGMENT &&
++                         ris->mode == nir_var_shader_in &&
++                         ris->fb_fetch_output == sem.fb_fetch_output &&
++                         ris->dual_source_blend_index == sem.dual_source_blend_index;
++   if (ris->component_mask && !merge_disjoint &&
+        (!(ris->component_mask & cmask) || ris->fb_fetch_output != sem.fb_fetch_output || ris->dual_source_blend_index != sem.dual_source_blend_index)) {
+       ris->ignored_component_mask |= cmask;
+       return;
+@@ -5390,6 +5404,17 @@ create_io_var(nir_shader *nir, struct rework_io_state *ris)
+    }
+    /* calculate vec/array type */
+    int frac = ffs(ris->component_mask) - 1;
++   /* BAR-on-mac: expand user varyings to vec4 at component 0 on both sides
++    * so MSL in/out structs always match (Metal links by location+component).
++    */
++   if (zink_io_quirk_moltenvk && ris->bit_size == 32 && !ris->arrayed_io &&
++       !ris->fb_fetch_output && !ris->array_size &&
++       ((ris->mode == nir_var_shader_in && ris->stage == MESA_SHADER_FRAGMENT) ||
++        (ris->mode == nir_var_shader_out && ris->stage == MESA_SHADER_VERTEX &&
++         !nir_slot_is_sysval_output(ris->location, MESA_SHADER_FRAGMENT)))) {
++      ris->component_mask = BITFIELD_MASK(4);
++      frac = 0;
++   }
+    int num_components = util_last_bit(ris->component_mask) - frac;
+    assert(ris->component_mask == BITFIELD_RANGE(frac, num_components));
+    const struct glsl_type *vec_type = glsl_vector_type(nir_get_glsl_base_type_for_nir_type(ris->type), num_components);
