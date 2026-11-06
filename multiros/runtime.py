@@ -38,7 +38,9 @@ def compose_base(config, root, backend):
     argv = ["docker", "compose", "--project-name", config["project"],
             "--project-directory", str(root)]
     for file in files:
-        path = root / file
+        path = Path(file.replace('{multiros}', str(CORE)))
+        if not path.is_absolute():
+            path = root / path
         if not path.is_file():
             raise ValueError(f"Compose file not found: {path}")
         argv += ["-f", str(path)]

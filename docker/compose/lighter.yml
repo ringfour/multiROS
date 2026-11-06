@@ -1,0 +1,12 @@
+# Shared Apple Silicon graphics profile; the robot selects its own image.
+services:
+  ros-dev:
+    platform: linux/arm64
+    devices:
+      - lighter.sh/gpu=all
+    environment:
+      MUJOCO_GL: ${MULTIROS_MUJOCO_GL:-egl}
+      PYOPENGL_PLATFORM: ${MULTIROS_MUJOCO_GL:-egl}
+      GALLIUM_DRIVER: ${MULTIROS_GALLIUM_DRIVER:-zink}
+      EGL_PLATFORM: surfaceless
+      ZINK_ALLOW_MISSING_EXT_MEM_FD: "1"

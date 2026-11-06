@@ -19,3 +19,23 @@ exec = "python tools/multiros/run.py exec"
 sim = "python tools/multiros/run.py sim"
 sim-stop = "python tools/multiros/run.py sim-stop"
 test = "python tools/multiros/run.py test"
+
+[tool.multiros]
+schema = 1
+project = "robot-dev"
+compose = ["compose.yaml"]
+service = "ros-dev"
+submodules = ["tools/multiros"]
+rendering_base = true
+
+[tool.multiros.container]
+image = "robot-dev:local"
+dockerfile = "docker/Dockerfile"
+workdir = "/workspace/robot"
+gpu = false
+mounts = [{"source" = "{root}", "target" = "/workspace/robot"}]
+ports = []
+
+[tool.multiros.container.environment]
+
+[tool.multiros.commands]

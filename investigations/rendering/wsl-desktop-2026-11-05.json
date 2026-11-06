@@ -1,0 +1,119 @@
+{
+  "wsl": [
+    {
+      "host": "Linux",
+      "mujoco": "3.13.0",
+      "renderer": "D3D12 (Intel(R) UHD Graphics 770)",
+      "gl_version": "4.1 (Compatibility Profile) Mesa 26.0.8-1ubuntu0.3",
+      "viewport": [
+        1280,
+        720
+      ],
+      "effects": false,
+      "mesh_triangles": 990907,
+      "frames": 90,
+      "snapshot": {
+        "median_ms": 0.174,
+        "p95_ms": 0.294
+      },
+      "render": {
+        "median_ms": 46.543,
+        "p95_ms": 54.768
+      }
+    },
+    {
+      "host": "Linux",
+      "mujoco": "3.13.0",
+      "renderer": "D3D12 (Intel(R) UHD Graphics 770)",
+      "gl_version": "4.1 (Compatibility Profile) Mesa 26.0.8-1ubuntu0.3",
+      "viewport": [
+        1280,
+        720
+      ],
+      "effects": false,
+      "mesh_triangles": 990907,
+      "frames": 90,
+      "snapshot": {
+        "median_ms": 0.174,
+        "p95_ms": 0.31
+      },
+      "render": {
+        "median_ms": 43.272,
+        "p95_ms": 50.073
+      }
+    }
+  ],
+  "windows": [
+    {
+      "host": "Windows",
+      "mujoco": "3.13.0",
+      "renderer": "Intel(R) UHD Graphics 770",
+      "gl_version": "4.6.0 - Build 32.0.101.7088",
+      "viewport": [
+        1280,
+        720
+      ],
+      "effects": false,
+      "mesh_triangles": 990907,
+      "frames": 90,
+      "snapshot": {
+        "median_ms": 4.115,
+        "p95_ms": 10.412
+      },
+      "render": {
+        "median_ms": 29.263,
+        "p95_ms": 33.28
+      }
+    },
+    {
+      "host": "Windows",
+      "mujoco": "3.13.0",
+      "renderer": "Intel(R) UHD Graphics 770",
+      "gl_version": "4.6.0 - Build 32.0.101.7088",
+      "viewport": [
+        1280,
+        720
+      ],
+      "effects": false,
+      "mesh_triangles": 990907,
+      "frames": 90,
+      "snapshot": {
+        "median_ms": 4.096,
+        "p95_ms": 10.269
+      },
+      "render": {
+        "median_ms": 29.102,
+        "p95_ms": 32.805
+      }
+    }
+  ],
+  "conditions": {
+    "date": "2026-11-05",
+    "effects": "shadows/reflections disabled",
+    "camera": "paused for viewer comparisons",
+    "other_GPU_work": "Fortnite closed by user",
+    "scene": "standard XLeRobot robocasa_home",
+    "method": "90 measured frames per run, 5 warmup frames; hidden GLFW window; glFinish; runs sequential WSL/Windows/Windows/WSL",
+    "core_checkout": "sibling multiROS with local viewer changes"
+  },
+  "camera": {
+    "reference_equivalence": "passed",
+    "samples": 12,
+    "three_pass_ms": {
+      "median": 121.25,
+      "p95": 139.66
+    },
+    "two_pass_ms": {
+      "median": 82.5,
+      "p95": 97.17
+    },
+    "preview_write_ms": {
+      "median": 1.61,
+      "p95": 1.97
+    },
+    "snapshot_read_ms": {
+      "median": 0.36,
+      "p95": 0.54
+    }
+  }
+}

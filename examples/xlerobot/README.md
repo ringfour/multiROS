@@ -1,17 +1,18 @@
 # XLeRobot integration
 
-[XLeRobotROS](https://github.com/cristidragomir97/XLeRobotROS) pins multiROS at
-`tools/multiros`. Its Pixi tasks call a small Python bootstrap; runtime behavior
-lives in the shared runner. There is no robot management shell dispatcher.
+[XLeRobotROS](https://github.com/cristidragomir97/XLeRobotROS) uses a pinned
+`tools/multiros` checkout behind robot-owned Pixi tasks and a small bootstrap.
+Its `pixi.toml` declares container settings, sources, builds and commands.
 
-`multiros.json` declares Compose overrides, WSLC mounts/environment, source
-modules, colcon packages, robot commands and viewer options. The default host
-environment contains Python only; the optional viewer environment pins MuJoCo
-3.13.0. `MULTIROS_ROOT` is an explicit source-development override.
+The robot keeps Python physics, camera rendering, controllers and navigation
+inside Docker. The native viewer follows its `chassis` body, hides collision
+geometry and currently opts into the legacy snapshot adapter. Its viewer
+environment pins MuJoCo 3.13.0.
 
-Physics, camera rendering and ROS remain unchanged in the container. The host
-frontend tracks the robot's `chassis` body and hides collision geometry. It
-explicitly accepts the existing legacy snapshots until the exporter is updated.
+Use the robot's README for its launch options, dashboard and checks. For the
+shared pattern, read [Getting started](../../docs/getting-started.md),
+[Configuration](../../docs/configuration.md) and
+[Simulation and viewing](../../docs/simulation.md).
 
-Use XLeRobot's [README](https://github.com/cristidragomir97/XLeRobotROS) for the
-current commands and Windows test procedure.
+`MULTIROS_ROOT` lets its bootstrap test a deliberate local core override;
+`doctor` reports that checkout's path and revision.

@@ -1,10 +1,11 @@
 import json
+import os
 from pathlib import Path
 import tempfile
 import unittest
 from unittest.mock import patch
 
-from multiros.cli import init_robot, load_config, plan, revision, select_backend
+from multiros.cli import default_config, init_robot, load_config, plan, revision, select_backend, viewer_command
 
 
 class RunnerTests(unittest.TestCase):
@@ -40,6 +41,27 @@ class RunnerTests(unittest.TestCase):
         self.assertNotIn("docker", command)
         self.assertEqual(command[-1], str(self.root / "viewer.py"))
 
+    def test_viewer_tuning_is_scoped_to_backend_and_user_can_override(self):
+        config = {'viewer': {'args': ['--track-body', 'base'],
+                            'backend_args': {'wsl': ['--frontend', 'glfw', '--rate', '15']}}}
+        with patch('multiros.cli.platform.system', return_value='Linux'):
+            tuned = viewer_command(config, self.root, ['--rate', '20'], 'wsl')
+            other = viewer_command(config, self.root, [], 'lighter')
+        self.assertEqual(tuned[-6:], ['--frontend', 'glfw', '--rate', '15', '--rate', '20'])
+        self.assertNotIn('glfw', other)
+
+    def test_shared_profile_resolves_from_selected_core(self):
+        profile = self.root / 'shared' / 'wsl.yml'
+        profile.parent.mkdir()
+        profile.write_text('services: {}\n')
+        config = {**self.config, 'backends': {'wsl': ['{multiros}/wsl.yml']}}
+        with patch('multiros.runtime.CORE', profile.parent):
+            command = plan(config, self.root, 'wsl', 'sim', [])
+        self.assertIn(str(profile), command)
+        with patch('multiros.runtime.CORE', self.root / 'missing'):
+            with self.assertRaisesRegex(ValueError, 'Compose file not found'):
+                plan(config, self.root, 'wsl', 'sim', [])
+
     def test_missing_backend_does_not_silently_fall_back(self):
         with self.assertRaisesRegex(ValueError, "not configured"):
             plan(self.config, self.root, "nvidia", "sim", [])
@@ -61,6 +83,30 @@ class RunnerTests(unittest.TestCase):
         path.write_text(json.dumps({**self.config, "project": "$(bad)"}))
         with self.assertRaises(ValueError):
             load_config(path)
+
+    def test_pixi_configuration_and_json_compatibility(self):
+        pixi = self.root / "pixi.toml"
+        pixi.write_text('[workspace]\nname = "robot-one"\n'
+                        '[tool.multiros]\nschema = 1\nproject = "robot-one"\n'
+                        'compose = ["compose.yaml"]\n'
+                        '[tool.multiros.commands.sim]\nwhere = "container"\n'
+                        'argv = ["launch", "robot"]\n')
+        config, root = load_config(pixi)
+        self.assertEqual(root, self.root)
+        self.assertEqual(plan(config, root, 'default', 'sim', [] )[-2:], ['launch', 'robot'])
+        legacy = self.root / 'multiros.json'
+        legacy.write_text(json.dumps(config))
+        self.assertEqual(load_config(legacy), (config, root))
+        previous = Path.cwd()
+        try:
+            os.chdir(self.root)
+            self.assertEqual(default_config(), Path('pixi.toml'))
+            pixi.write_text('[workspace]\nname = "unrelated"\n')
+            self.assertEqual(default_config(), Path('multiros.json'))
+            with self.assertRaisesRegex(ValueError, 'missing'):
+                load_config(pixi)
+        finally:
+            os.chdir(previous)
 
     def test_starter_refuses_overwrites_before_writing_anything(self):
         destination = self.root / "new robot"

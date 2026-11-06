@@ -1,67 +1,68 @@
 # multiROS
 
-Shared host tools and rendering images for containerized ROS robots.
-Robot descriptions, controllers, middleware and launch files stay with each robot.
+multiROS gives your ROS robot a common workflow for setup, simulation and
+development. ROS runs in Linux containers; a native MuJoCo window lets you watch
+the simulation from your desktop.
 
-Pixi runs the host commands. Linux containers run ROS, physics and simulated
-cameras. A native MuJoCo frontend displays state without stepping physics.
+Your robot keeps its models, controllers, launch files and middleware. multiROS
+provides the host tools, shared rendering images and passive viewer around them.
 
-| Host | Runtime | Status |
-| --- | --- | --- |
-| macOS Apple Silicon | Docker/lighter with patched Mesa | Tested with XLeRobotROS |
-| Linux | Docker Compose | Runtime testing pending |
-| Windows | Microsoft `wslc.exe` | Adapter implemented; Windows testing pending |
+## What you can do
 
-## Use it in a robot
+- Work on a robot without installing ROS on your laptop.
+- Start containers, rebuild ROS packages and inspect logs through Pixi tasks.
+- Watch a live simulation in a separate window, while cameras and physics keep running in Docker.
+- Reuse the same tools across robots without copying their setup scripts.
 
-Keep a small robot-owned `pixi.toml` and `multiros.json`, and pin this repository
-as a submodule at `tools/multiros`. The [starter](templates/robot/README.md) and
-[XLeRobot integration](examples/xlerobot/README.md) show the arrangement.
+## Quick start
 
-```bash
-git submodule add https://github.com/ringfour/multiROS.git tools/multiros
-```
-
-The shared runner provides setup, image builds, container lifecycle and native
-viewing. Robot commands are argument arrays, not a copied shell dispatcher.
-See [runner configuration](docs/runner.md) and [porting a robot](docs/porting.md).
-
-## Work on multiROS
+Install [Pixi](https://pixi.sh), Git and your platform's
+[container runtime](docs/platforms.md). From a robot repository that uses multiROS:
 
 ```bash
 pixi install --locked
 pixi run doctor
-pixi run -e mujoco test
-pixi run -e mujoco example-view
+pixi run up
+pixi run sim
 ```
 
-Create a starter with `pixi run core init /path/to/new-robot`. Existing files
-are never overwritten. The default environment contains Python only; the
-optional MuJoCo environment adds frontend dependencies.
-
-## Rendering images
+In another terminal, open its native viewer:
 
 ```bash
-docker build --target runtime -t multiros:jazzy-rendering -f docker/Dockerfile .
-docker build --target lighter -t multiros:jazzy-lighter -f docker/Dockerfile .
+pixi run view
 ```
 
-Both use ROS Jazzy on Ubuntu Noble. `runtime` provides EGL/Vulkan/OSMesa
-libraries. `lighter` adds patched Mesa Zink 25.1.9 for Venus/MoltenVK on macOS.
-Robot images add their own simulator versions and packages.
+Closing the viewer leaves the simulation running. Use `pixi run sim-stop` to
+stop the simulation, or `pixi run down` to stop the project's containers too.
 
-Run `multiros-check-rendering --require-accelerated` inside a robot image with
-MuJoCo, NumPy and PyOpenGL. It checks textured RGB, a known metric depth and
-segmentation, and reports the actual GL renderer.
+**New here?** [Getting started](docs/getting-started.md) covers the requirements,
+the standalone viewer example and the first run. To bring an existing robot
+into this workflow, follow [Adding a robot](docs/porting.md).
 
-The [Mesa patches](docker/patches/mesa-25.1.9/README.md) retain their attribution
-and MIT license. [Rendering investigation](investigations/rendering/README.md)
-and [validation](VALIDATION.md) record the tested limits.
+## Documentation
 
-## Design notes
+| Guide | What you'll find |
+| --- | --- |
+| [Getting started](docs/getting-started.md) | Installation and your first session |
+| [Commands](docs/commands.md) | Daily workflow, rebuilds and shutdown |
+| [Configuration](docs/configuration.md) | Robot commands, paths, Compose and viewer settings |
+| [Platforms](docs/platforms.md) | WSL, Linux, macOS and the experimental WSLC adapter |
+| [Simulation and viewing](docs/simulation.md) | How the viewer follows physics, plus the snapshot format |
+| [Troubleshooting](docs/troubleshooting.md) | Runtime, graphics and viewer problems |
 
-- [Architecture](specs.md)
-- [Repository comparison and ownership](docs/shared-core.md)
-- [Windows / wslc](docs/windows-wslc.md)
-- [MuJoCo state exchange](mojuco.md)
-- [Snapshot format and example](examples/mujoco/README.md)
+XLeRobotROS has been tested on Apple Silicon/macOS with lighter and on WSL2
+with Docker Desktop. Mr Handy has also been tested on WSL2. Native Linux GPU
+paths and the PowerShell/WSLC runtime still need validation. See the
+[validation record](VALIDATION.md) for the tested setups and limits.
+
+## Development
+
+See [Working on multiROS](docs/development.md) for tests and rendering-image
+builds, and [Architecture](docs/architecture.md) for the boundaries between
+shared tools and robot code. Driver investigations are kept under
+[`investigations/`](investigations/rendering/README.md).
+
+## License
+
+[Apache-2.0](LICENSE). Vendored Mesa patches retain their
+[attribution and MIT license](docker/patches/mesa-25.1.9/README.md).

@@ -1,0 +1,11 @@
+# Docker Desktop from a WSL shell. Interactive rendering stays on the host.
+services:
+  ros-dev:
+    devices:
+      - /dev/dxg:/dev/dxg
+    volumes:
+      - /usr/lib/wsl:/usr/lib/wsl:ro
+    environment:
+      GALLIUM_DRIVER: ${MULTIROS_GALLIUM_DRIVER:-d3d12}
+      LD_LIBRARY_PATH: /usr/lib/wsl/lib
+      PYOPENGL_PLATFORM: egl

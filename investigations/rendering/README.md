@@ -1,5 +1,8 @@
 # MuJoCo texture crash on lighter
 
+This is a historical investigation, not a setup guide. For current usage, start
+with the [README](../../README.md) or [development guide](../../docs/development.md).
+
 Investigated on 5 November 2026, Apple M4, lighter 0.13.8.
 
 **Integration update:** the shared Dockerfile now vendors both the shader I/O

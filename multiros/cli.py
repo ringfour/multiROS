@@ -8,6 +8,7 @@ import re
 import shutil
 import subprocess
 import sys
+import tomllib
 
 from .runtime import (CORE, compose_base, container_name, exec_command,
                       image_commands, lifecycle_command, runtime_name, wslc_existing)
@@ -30,11 +31,25 @@ def revision(root):
             'dirty': bool(status) if status is not None else None}
 
 
+def default_config():
+    pixi = Path('pixi.toml')
+    if pixi.is_file() and 'multiros' in tomllib.loads(pixi.read_text()).get('tool', {}):
+        return pixi
+    return Path('multiros.json')
+
+
 def load_config(path):
     path = path.resolve()
-    config = json.loads(path.read_text())
+    if path.suffix == '.toml':
+        document = tomllib.loads(path.read_text())
+        config = document.get('tool', {}).get('multiros')
+        if not isinstance(config, dict):
+            raise ValueError(f'{path}: missing [tool.multiros] configuration')
+    else:
+        # Compatibility for robots which have not migrated yet.
+        config = json.loads(path.read_text())
     if config.get('schema') != 1:
-        raise ValueError('multiros.json must use schema 1')
+        raise ValueError(f'{path}: multiROS configuration must use schema 1')
     if not re.fullmatch(r'[a-z0-9][a-z0-9_-]*', config.get('project', '')):
         raise ValueError('project must be a lowercase Compose project name')
     root = (path.parent / config.get('root', '.')).resolve()
@@ -155,13 +170,13 @@ def init_robot(destination):
     return 0
 
 
-def viewer_command(config, root, extra):
+def viewer_command(config, root, extra, backend="default"):
     executable = shutil.which('mjpython') if platform.system() == 'Darwin' else sys.executable
     if not executable:
         raise ValueError('mjpython is required on macOS; use the robot viewer Pixi environment')
     spec = config['viewer']
     return [executable, '-m', 'multiros.viewer', '--runtime', str(root / spec.get('runtime', '.runtime')),
-            *spec.get('args', []), *extra]
+            *spec.get('args', []), *spec.get('backend_args', {}).get(backend, []), *extra]
 
 
 def execute(commands, root, dry_run):
@@ -197,7 +212,7 @@ def main(argv=None):
         runtime = runtime_name(args.runtime)
         context = capture(['docker', 'context', 'show']) if runtime == 'docker' else None
         backend = select_backend(args.backend, context)
-        path = args.config or Path('multiros.json')
+        path = args.config or default_config()
         if args.action == 'doctor' and args.config is None and not path.exists():
             return doctor(None, None, backend, context, runtime)
         config, root = load_config(path)
@@ -207,7 +222,7 @@ def main(argv=None):
         if args.action == 'view':
             env = dict(os.environ)
             env['PYTHONPATH'] = os.pathsep.join(filter(None, [str(CORE), env.get('PYTHONPATH')]))
-            command = viewer_command(config, root, extra)
+            command = viewer_command(config, root, extra, backend)
             if args.dry_run:
                 return execute([command], root, True)
             return subprocess.call(command, cwd=root, env=env)
